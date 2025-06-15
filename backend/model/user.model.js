@@ -14,7 +14,10 @@ const userSchema = mongoose.Schema({
         type:String,
         require: true,
         select: false,
-    }
+    },
+    tocken:{
+        type:String
+    },
 })
 
 const User = mongoose.model("User", userSchema)

@@ -1,5 +1,7 @@
 import User from "../model/user.model.js";
 import {z} from "zod"
+import bcrypt from 'bcryptjs'
+import { generateTockenAndSaveInCookies } from "../jwt/tocken.js";
 
 const userSchema = z.object({
     username:z.string().min(3,{message:"Enter Atleast 3 char long"}),
@@ -30,10 +32,13 @@ export const register = async (req,res)=>{
         if(user){
             return res.status(400).json({message: "User Already exist"})
         }
-        const newuser = new User({username,email,password})
+
+        const hashpassword = await bcrypt.hash(password,10)
+        const newuser = new User({username,email,password:hashpassword})
         await newuser.save()
         if(newuser){
-            res.status(201).json({message:"User registerted Successfully !!",newuser})
+           const token = await generateTockenAndSaveInCookies(newuser._id, res);
+            res.status(201).json({message:"User registerted Successfully !!",newuser,token})
         }
     } catch (error) {
         console.log(error);
@@ -41,9 +46,33 @@ export const register = async (req,res)=>{
         
     }
 }
-export const login = (req,res)=>{
-    console.log("login function called")
+export const login = async(req,res)=>{
+    const{email,password} = req.body;
+    try {
+        if(!email || !password){
+            return res.status(400).json({message:"All files requied"})
+        }
+        const user = await User.findOne({email}).select("+password")
+        if(!user?.password || !(await bcrypt.compare(password,user.password))){
+            return res.status(400).json({message:"Invalid username or password"})
+        }
+         const token = await generateTockenAndSaveInCookies(user._id, res);
+        res.status(200).json({message:"You are logged in successfully",user,token})
+    } catch (error) {
+      console.log(error);
+        res.status(500).json({message:"Error Login User"})
+         
+    }
 }
 export const  logout= (req,res)=>{
-    console.log("logout function called")
+
+    try {
+        res.clearCookie("jwt",{
+            path:"/"
+        })
+        
+    } catch (error) {
+        console.log(error);
+        res.status(500).json({message:"Error logout User"})
+    }
 }
